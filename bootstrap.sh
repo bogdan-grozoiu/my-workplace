@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ORG="bogdan-grozoiu"
-REPO="waas"
+REPO="my-workplace"
 REPO_URL="https://github.com/$ORG/$REPO.git"
 TARGET_DIR="$HOME/git/github/$ORG/$REPO"
 
