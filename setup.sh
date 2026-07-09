@@ -6,6 +6,7 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Order of execution - edit this list to change the order
 SCRIPTS=(
   claude.sh
+  gpg.sh
   zshrc.sh
 )
 
