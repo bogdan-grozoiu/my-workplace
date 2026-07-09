@@ -54,7 +54,7 @@ add_conf_line "max-cache-ttl 120"
 
 # Given a key fingerprint, prints the keygrip of its first authentication-capable subkey.
 find_auth_keygrip() {
-  gpg -K --with-keygrip --with-colons "$1" | awk -F: '
+  gpg -K --with-keygrip --with-colons "$1" 2>/dev/null | awk -F: '
     $1 == "ssb" && $12 ~ /[aA]/ { want=1; next }
     want && $1 == "grp" { print $10; exit }
   '
@@ -67,36 +67,87 @@ find_card_auth_keygrip() {
   gpg-connect-agent 'KEYINFO --list' /bye 2>/dev/null | awk '$1 == "S" && $2 == "KEYINFO" && $6 == "OPENPGP.3" { print $3; exit }'
 }
 
+# Prints the fingerprint of the primary secret key (the one git points at for signing;
+# gpg picks the right signing subkey underneath it automatically).
+find_primary_fingerprint() {
+  gpg -K --with-colons 2>/dev/null | awk -F: '$1 == "sec" { found = 1 } found && $1 == "fpr" { print $10; exit }'
+}
+
+# True if gpg already knows about a secret key (a real key or a card stub).
+gpg_has_secret_key() {
+  gpg -K --with-colons 2>/dev/null | grep -q '^sec:'
+}
+
 add_keygrip_to_sshcontrol() {
   grep -qxF "$1" "$SSHCONTROL" || echo "$1" >> "$SSHCONTROL"
   echo "Added keygrip $1 to $SSHCONTROL"
 }
 
+KEYGRIP=""     # authentication keygrip registered with gpg-agent for SSH
+SIGNING_KEY="" # primary key fingerprint git uses for commit/tag signing
+
+# Resolve the key source, in priority order:
+#   1. A physically-present YubiKey (OpenPGP card) — use it for both SSH auth and signing.
+#   2. An already-configured local GPG key — reuse it, don't prompt.
+#   3. Otherwise, import an armored private key the user points us to.
 if gpg --card-status &>/dev/null; then
-  echo "Yubikey detected, configuring card authentication key for SSH..."
-  KEYGRIP="$(find_card_auth_keygrip)"
+  echo "Yubikey detected, using card for SSH authentication and commit signing..."
+
+  # A fresh machine may have the card but not the public key. gpg needs the public
+  # key in the keyring to sign, so fetch it from the URL stored on the card.
+  if ! gpg_has_secret_key; then
+    echo "Public key not in keyring, fetching from card URL..."
+    printf 'fetch\n' | gpg --batch --command-fd=0 --edit-card >/dev/null 2>&1 || true
+    gpg --card-status >/dev/null 2>&1 || true
+  fi
+
+  KEYGRIP="$(find_card_auth_keygrip || true)"
   if [ -z "$KEYGRIP" ]; then
     echo "No authentication key found on the card." >&2
     exit 1
   fi
+  SIGNING_KEY="$(find_primary_fingerprint || true)"
+elif gpg_has_secret_key; then
+  echo "Existing GPG key found, reusing it..."
+  SIGNING_KEY="$(find_primary_fingerprint || true)"
+  [ -n "$SIGNING_KEY" ] && KEYGRIP="$(find_auth_keygrip "$SIGNING_KEY" || true)"
 else
   KEY_FILE="${1:-}"
   if [ -z "$KEY_FILE" ]; then
-    echo "No Yubikey detected. Pass the path to an armored private key file to import:" >&2
-    echo "  $0 /path/to/private-key.asc" >&2
+    echo "No Yubikey detected and no GPG key configured."
+    read -r -p "Path to your armored private key file (.asc): " KEY_FILE || true
+  fi
+  KEY_FILE="${KEY_FILE/#\~/$HOME}"
+  if [ -z "$KEY_FILE" ] || [ ! -f "$KEY_FILE" ]; then
+    echo "No key file provided or file not found: ${KEY_FILE:-<empty>}" >&2
     exit 1
   fi
   echo "Importing private key from $KEY_FILE..."
   gpg --import "$KEY_FILE"
-  FINGERPRINT="$(gpg --show-keys --with-colons "$KEY_FILE" | awk -F: '$1 == "fpr" {print $10; exit}')"
-  KEYGRIP="$(find_auth_keygrip "$FINGERPRINT")"
-  if [ -z "$KEYGRIP" ]; then
-    echo "Could not find an authentication-capable subkey for $FINGERPRINT." >&2
-    exit 1
-  fi
+  SIGNING_KEY="$(gpg --show-keys --with-colons "$KEY_FILE" | awk -F: '$1 == "fpr" {print $10; exit}')"
+  KEYGRIP="$(find_auth_keygrip "$SIGNING_KEY" || true)"
 fi
 
-add_keygrip_to_sshcontrol "$KEYGRIP"
+# SSH: register the authentication keygrip with gpg-agent.
+if [ -n "$KEYGRIP" ]; then
+  add_keygrip_to_sshcontrol "$KEYGRIP"
+else
+  echo "No authentication-capable key found; skipped SSH (sshcontrol) setup." >&2
+fi
+
+# Commit signing: point git at this key.
+if [ -n "$SIGNING_KEY" ]; then
+  git config --global gpg.program "$(command -v gpg)"
+  git config --global user.signingkey "$SIGNING_KEY"
+  git config --global commit.gpgsign true
+  git config --global tag.gpgsign true
+  echo "Configured git commit/tag signing with key $SIGNING_KEY"
+else
+  echo "No signing key resolved; skipped git commit-signing setup." >&2
+fi
 
 gpgconf --kill gpg-agent
-echo "Done. Verify with: ssh-add -L"
+gpg-connect-agent killagent /bye
+echo "Done."
+echo "  SSH:     verify with  ssh-add -L"
+echo "  Signing: verify with  echo test | gpg --clearsign"
