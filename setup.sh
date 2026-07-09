@@ -8,10 +8,12 @@ SCRIPTS=(
   brew.sh
   claude.sh
   gpg.sh
+  git-identity.sh
   zshrc.sh
   spotify.sh
   slack.sh
   vscode.sh
+  obsidian.sh
 )
 
 for script in "${SCRIPTS[@]}"; do

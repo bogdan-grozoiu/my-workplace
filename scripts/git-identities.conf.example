@@ -1,0 +1,20 @@
+# my-workplace git identities — copy to "git-identities.conf" and fill in.
+# The real file (git-identities.conf) is gitignored: your names/emails stay LOCAL.
+#
+# One identity per line:  platform|org|Full Name|email
+#
+#   platform  github | azure | url
+#     github   matches https + ssh GitHub remotes for <org>
+#     azure    matches dev.azure.com, ssh v3, and <org>.visualstudio.com for <org>
+#     url      <org> field is a raw remote-URL glob; use ** as the wildcard
+#   org       the organization slug (as it appears in the remote URL), or a
+#             raw URL glob when platform is "url"
+#
+# Blank lines and lines starting with # are ignored.
+# The signing KEY is the same for every org (your global gpg signingkey);
+# only the committer name/email change here.
+#
+# Examples — replace with your own:
+# github|acme|Bogdan Grozoiu|bogdan@acme.com
+# azure|contoso|Bogdan Grozoiu|bogdan@contoso.com
+# url|https://git.example.com/platform/**|Bogdan Grozoiu|bogdan@example.com
