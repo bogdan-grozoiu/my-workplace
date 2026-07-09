@@ -113,12 +113,15 @@ source $ZSH/oh-my-zsh.sh
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 export GPG_TTY="$(tty)"
-# Tell the pinentry-auto wrapper to use the curses (in-terminal) pinentry here;
-# GUI apps without this env fall back to pinentry-mac.
+# Use the curses (in-terminal) pinentry for GPG signing in this shell; GPG passes
+# this per-process, so GUI apps (no env) still fall back to pinentry-mac.
 export PINENTRY_USER_DATA="curses"
 export SSH_AUTH_SOCK=$(gpgconf --list-dirs agent-ssh-socket)
 gpgconf --launch gpg-agent
-gpg-connect-agent updatestartuptty /bye > /dev/null
+# SSH keys share ONE global pinentry context in the agent, so keep it on the GUI
+# pinentry-mac: clear the curses flag for this call, otherwise SSH auth from GUI
+# apps (e.g. VS Code) would try curses on a terminal they can't draw into.
+PINENTRY_USER_DATA= gpg-connect-agent updatestartuptty /bye > /dev/null
 
 autoload -U +X bashcompinit && bashcompinit
 rider() { open -na "Rider.app" --args nosplash "$@"; }
