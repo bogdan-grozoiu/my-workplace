@@ -113,6 +113,9 @@ source $ZSH/oh-my-zsh.sh
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 export GPG_TTY="$(tty)"
+# Tell the pinentry-auto wrapper to use the curses (in-terminal) pinentry here;
+# GUI apps without this env fall back to pinentry-mac.
+export PINENTRY_USER_DATA="curses"
 export SSH_AUTH_SOCK=$(gpgconf --list-dirs agent-ssh-socket)
 gpgconf --launch gpg-agent
 gpg-connect-agent updatestartuptty /bye > /dev/null
