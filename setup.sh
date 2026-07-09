@@ -10,6 +10,8 @@ SCRIPTS=(
   gpg.sh
   zshrc.sh
   spotify.sh
+  slack.sh
+  vscode.sh
 )
 
 for script in "${SCRIPTS[@]}"; do
