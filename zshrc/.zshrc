@@ -113,15 +113,37 @@ source $ZSH/oh-my-zsh.sh
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 export GPG_TTY="$(tty)"
-# Use the curses (in-terminal) pinentry for GPG signing in this shell; GPG passes
-# this per-process, so GUI apps (no env) still fall back to pinentry-mac.
+# GPG commit signing in this shell uses the in-terminal (curses) pinentry; GPG
+# passes this per-process, so GUI apps (no env) still fall back to pinentry-mac.
 export PINENTRY_USER_DATA="curses"
 export SSH_AUTH_SOCK=$(gpgconf --list-dirs agent-ssh-socket)
 gpgconf --launch gpg-agent
-# SSH keys share ONE global pinentry context in the agent, so keep it on the GUI
-# pinentry-mac: clear the curses flag for this call, otherwise SSH auth from GUI
-# apps (e.g. VS Code) would try curses on a terminal they can't draw into.
-PINENTRY_USER_DATA= gpg-connect-agent updatestartuptty /bye > /dev/null
+
+# SSH keys share ONE global pinentry context in the agent (SSH requests carry no
+# per-process env), so we can't route per request like we can for signing. Instead:
+# default the context to GUI pinentry-mac — so VS Code and other GUI apps get the
+# popup — and flip it to the in-terminal curses pinentry only while an SSH-using
+# command runs in this shell.
+_gpg_ssh_ctx() {  # $1 = curses | gui
+  local ud=; [[ $1 == curses ]] && ud=curses
+  GPG_TTY="$(tty)" PINENTRY_USER_DATA="$ud" \
+    gpg-connect-agent updatestartuptty /bye >/dev/null 2>&1
+}
+_gpg_ssh_ctx gui                       # establish the GUI default up front
+typeset -g _gpg_ssh_state=gui
+autoload -Uz add-zsh-hook
+_gpg_ssh_preexec() {                    # about to run a command
+  case $1 in
+    ssh|ssh\ *|scp|scp\ *|sftp|sftp\ *|mosh|mosh\ *|rsync\ *|git\ *)
+      _gpg_ssh_ctx curses; _gpg_ssh_state=curses ;;
+  esac
+}
+_gpg_ssh_precmd() {                     # back at the prompt: restore GUI default
+  [[ $_gpg_ssh_state == curses ]] || return
+  _gpg_ssh_ctx gui; _gpg_ssh_state=gui
+}
+add-zsh-hook preexec _gpg_ssh_preexec
+add-zsh-hook precmd  _gpg_ssh_precmd
 
 autoload -U +X bashcompinit && bashcompinit
 rider() { open -na "Rider.app" --args nosplash "$@"; }
