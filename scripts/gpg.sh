@@ -60,15 +60,22 @@ find_auth_keygrip() {
   '
 }
 
+# Prints the keygrip gpg-agent has registered for the card's authentication slot (OPENPGP.3).
+# Works even if the auth subkey's public key was never imported locally, since it queries the
+# agent's card stub directly instead of looking the key up by fingerprint.
+find_card_auth_keygrip() {
+  gpg-connect-agent 'KEYINFO --list' /bye 2>/dev/null | awk '$1 == "S" && $2 == "KEYINFO" && $6 == "OPENPGP.3" { print $3; exit }'
+}
+
 add_keygrip_to_sshcontrol() {
   grep -qxF "$1" "$SSHCONTROL" || echo "$1" >> "$SSHCONTROL"
   echo "Added keygrip $1 to $SSHCONTROL"
 }
 
-if CARD_STATUS="$(gpg --card-status 2>/dev/null)"; then
+if gpg --card-status &>/dev/null; then
   echo "Yubikey detected, configuring card authentication key for SSH..."
-  FINGERPRINT="$(echo "$CARD_STATUS" | awk -F': ' '/^Authentication key/ {gsub(/ /,"",$2); print $2}')"
-  if [ -z "$FINGERPRINT" ]; then
+  KEYGRIP="$(find_card_auth_keygrip)"
+  if [ -z "$KEYGRIP" ]; then
     echo "No authentication key found on the card." >&2
     exit 1
   fi
@@ -82,13 +89,13 @@ else
   echo "Importing private key from $KEY_FILE..."
   gpg --import "$KEY_FILE"
   FINGERPRINT="$(gpg --show-keys --with-colons "$KEY_FILE" | awk -F: '$1 == "fpr" {print $10; exit}')"
+  KEYGRIP="$(find_auth_keygrip "$FINGERPRINT")"
+  if [ -z "$KEYGRIP" ]; then
+    echo "Could not find an authentication-capable subkey for $FINGERPRINT." >&2
+    exit 1
+  fi
 fi
 
-KEYGRIP="$(find_auth_keygrip "$FINGERPRINT")"
-if [ -z "$KEYGRIP" ]; then
-  echo "Could not find an authentication-capable subkey for $FINGERPRINT." >&2
-  exit 1
-fi
 add_keygrip_to_sshcontrol "$KEYGRIP"
 
 gpgconf --kill gpg-agent
