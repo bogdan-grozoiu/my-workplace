@@ -9,6 +9,7 @@ SCRIPTS=(
   claude.sh
   gpg.sh
   zshrc.sh
+  spotify.sh
 )
 
 for script in "${SCRIPTS[@]}"; do
