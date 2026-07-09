@@ -36,8 +36,8 @@ touch "$AGENT_CONF" "$SSHCONTROL"
 
 add_conf_line() {
   local key="${1%% *}"
-  if grep -q "^$key" "$AGENT_CONF"; then
-    sed -i '' "s|^$key.*|$1|" "$AGENT_CONF"
+  if grep -q "^$key " "$AGENT_CONF"; then
+    sed -i '' "s|^$key .*|$1|" "$AGENT_CONF"   # note the space after $key
   else
     echo "$1" >> "$AGENT_CONF"
   fi
