@@ -15,12 +15,32 @@ if ! command -v pinentry-mac &> /dev/null; then
   brew install pinentry-mac
 fi
 
+if ! command -v ykpersonalize &> /dev/null; then
+  echo "yubikey-personalization not found, installing..."
+  brew install yubikey-personalization
+fi
+
+if ! command -v ykman &> /dev/null; then
+  echo "ykman not found, installing..."
+  brew install ykman
+fi
+
+if ! command -v wget &> /dev/null; then
+  echo "wget not found, installing..."
+  brew install wget
+fi
+
 mkdir -p "$GNUPGHOME"
 chmod 700 "$GNUPGHOME"
 touch "$AGENT_CONF" "$SSHCONTROL"
 
 add_conf_line() {
-  grep -qxF "$1" "$AGENT_CONF" || echo "$1" >> "$AGENT_CONF"
+  local key="${1%% *}"
+  if grep -q "^$key" "$AGENT_CONF"; then
+    sed -i '' "s|^$key.*|$1|" "$AGENT_CONF"
+  else
+    echo "$1" >> "$AGENT_CONF"
+  fi
 }
 
 add_conf_line "enable-ssh-support"
