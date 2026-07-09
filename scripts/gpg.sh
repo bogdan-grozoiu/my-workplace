@@ -10,9 +10,9 @@ if ! command -v gpg &> /dev/null; then
   brew install gnupg
 fi
 
-if ! command -v pinentry-mac &> /dev/null; then
-  echo "pinentry-mac not found, installing..."
-  brew install pinentry-mac
+if ! command -v pinentry-curses &> /dev/null; then
+  echo "pinentry (curses) not found, installing..."
+  brew install pinentry
 fi
 
 if ! command -v ykpersonalize &> /dev/null; then
@@ -48,7 +48,7 @@ add_conf_line() {
 }
 
 add_conf_line "enable-ssh-support"
-add_conf_line "pinentry-program $(brew --prefix pinentry-mac)/bin/pinentry-mac"
+add_conf_line "pinentry-program $(brew --prefix pinentry)/bin/pinentry-curses"
 add_conf_line "default-cache-ttl 60"
 add_conf_line "max-cache-ttl 120"
 
