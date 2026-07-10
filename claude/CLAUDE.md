@@ -91,6 +91,8 @@ Match this structure and level of detail:
 
 When asked to produce a **design document** (HLD/LLD) for a single application/solution landing zone workload, structured against the Microsoft Cloud Adoption Framework (CAF) and generated from the Infrastructure-as-Code in a repo, follow the process below. This produces ONE Markdown document combining High-Level and Low-Level Design.
 
+**Precedence over the general documentation rules above.** For an HLD/LLD design document, THIS section is authoritative for document *structure* - use the header table, the single table of contents, the framework chapters, the appendices, and the Known gaps section defined here. Do NOT graft on the general section's structural elements (numbered `## 1.` headers, Repository Set table, End-to-End Flow, Deployment Pipelines table). There is exactly ONE TOC, defined by this section. From the general section, only inherit the *behavioral* rules - source-of-truth grounding, always ask for the repo path, flag discrepancies via the `Technical Debt` convention, never invent values, and honor `surgical` - PLUS the **History table** and **commit ID** conventions (include both, tracking this design doc against the source repo exactly as described above).
+
 **Before starting, ask (don't assume):**
 
 - **Output location and filename.** Never hardcode a path. Ask where the document should be written and what to name it (suggest a `<workload>-design.md` filename, and if the repo already has a documentation folder, offer to place it there). Confirm before writing.
